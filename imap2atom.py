@@ -27,13 +27,13 @@ FOLDER = ''
 LINK = 'http://'
 
 parser = HeaderParser()
-
 def decode_subject(s):
   (subject,encode) = decode_header(s)[0]
-  if(encode=='utf-8' or encode==None):
+
+  if(encode==None):
     sub = str(subject)
   else :
-    sub = subject.decode(encode).encode('utf-8')
+    sub = subject.decode(encode)
   return sub.replace("&","&amp;")
 
 def decode_date(s):
