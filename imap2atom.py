@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import imaplib
@@ -11,12 +11,12 @@ from email.parser import HeaderParser
 from email.header import decode_header
 from email.utils import parsedate,parseaddr
 from datetime import datetime
-from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-from urlparse import urlparse, parse_qs
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import urlparse, parse_qs
 
 APP_NAME = 'imap2atom'
 APP_LINK = 'https://bitbucket.org/florent_k/imap2atom'
-APP_VERSION = '0.2'
+APP_VERSION = '0.3'
 PORT_NUMBER = 14380
 MAX_NB_MAIL = 100
 
@@ -31,10 +31,10 @@ parser = HeaderParser()
 def decode_subject(s):
   (subject,encode) = decode_header(s)[0]
   if(encode=='utf-8' or encode==None):
-    sub = subject
+    sub = str(subject)
   else :
     sub = subject.decode(encode).encode('utf-8')
-  return string.replace(sub,"&","&amp;")
+  return sub.replace("&","&amp;")
 
 def decode_date(s):
   d = parsedate(s)
@@ -96,7 +96,7 @@ def fetch_first_url_clean(msg):
   return fetch_first_url(msg).replace("&","&amp;")
 
 def fetch_mail(m):
-  msg = email.message_from_string(m[1])
+  msg = email.message_from_bytes(m[1])
   return (fetch_first_url_clean(msg),fetch_header(msg))
 
 def fetch_mails(nb) :
@@ -108,7 +108,7 @@ def fetch_mails(nb) :
 
   result, data = mail.uid('search', None, "ALL")
    
-  uid_list = ','.join(data[0].split()[-nb:]) 
+  uid_list = b",".join(data[0].split()[-nb:])
 
   result, data = mail.uid('fetch', uid_list, '(RFC822)')
 
@@ -116,6 +116,10 @@ def fetch_mails(nb) :
 
 
 def generate_entry(link,title,date,uid,name,addr):
+  if (link == "#"):
+    domain = addr.split("@")[1]
+    link = "http://"+domain.split(".")[-2]+"."+domain.split(".")[-1]
+
   e=['\n<entry>',
     '\t<title>[' + name  + '] ' +  title + '</title>',
 #    '\t<link href="<![CDATA[' + link + ']]>"/>',
@@ -160,20 +164,20 @@ class MyHandler(BaseHTTPRequestHandler):
       s.send_response(200)
       s.send_header("Content-type", "application/atom+xml")
       s.end_headers()
-      s.wfile.write(generate_atom(fetch_mails(nb)))
+      s.wfile.write(generate_atom(fetch_mails(nb)).encode())
 
 def main():
     try:
         server = HTTPServer(('', PORT_NUMBER), MyHandler)
-        print 'Started pymap2atom...'
+        print ('Started pymap2atom...')
         server.serve_forever()
     except KeyboardInterrupt:
-        print '^C received, shutting down server'
+        print ('^C received, shutting down server')
         server.socket.close()
 
 
 def test():
-  print generate_atom(fetch_mails(10))
+  print (generate_atom(fetch_mails(10)))
   #print fetch_mails(10)
 
 if __name__ == "__main__":
