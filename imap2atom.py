@@ -16,7 +16,7 @@ from urllib.parse import urlparse, parse_qs
 
 APP_NAME = 'imap2atom'
 APP_LINK = 'https://bitbucket.org/florent_k/imap2atom'
-APP_VERSION = '0.3'
+APP_VERSION = '0.4'
 PORT_NUMBER = 14380
 MAX_NB_MAIL = 100
 
@@ -27,14 +27,14 @@ FOLDER = ''
 LINK = 'http://'
 
 parser = HeaderParser()
-def decode_subject(s):
-  (subject,encode) = decode_header(s)[0]
 
-  if(encode==None):
-    sub = str(subject)
-  else :
-    sub = subject.decode(encode)
-  return sub.replace("&","&amp;")
+def decode_subject(subject,encode):
+  return (  subject if(type(subject) == str)
+            else subject.decode(encode or "utf-8")
+         ).replace("&","&amp;")
+
+def decode_subjects(s):
+  return "".join(map(lambda args: decode_subject(*args),decode_header(s)))
 
 def decode_date(s):
   d = parsedate(s)
@@ -44,7 +44,7 @@ def decode_date(s):
     return datetime.fromtimestamp(time.mktime(d)) 
 
 def fetch_header(msg):
-  return (decode_subject(msg['Subject']),decode_date(msg['Date']),parseaddr(msg['Message-ID'])[1],parseaddr(msg['From']))
+  return (decode_subjects(msg['Subject']),decode_date(msg['Date']),parseaddr(msg['Message-ID'])[1],parseaddr(msg['From']))
 
 def find_end_url(begin,text):
   for i in range(begin,len(text)):
@@ -55,9 +55,9 @@ def find_end_url(begin,text):
   return len(text)
 
 def find_first_url(text):
-  begin = text.find("https://")
+  begin = text.find(b"https://")
   
-  if(begin == -1): begin = text.find("http://")
+  if(begin == -1): begin = text.find(b"http://")
 
   if(begin > 0):
     end = find_end_url(begin,text)
@@ -93,7 +93,7 @@ def fetch_first_url(msg):
   return "#"
 
 def fetch_first_url_clean(msg):
-  return fetch_first_url(msg).replace("&","&amp;")
+  return str(fetch_first_url(msg)).replace("&","&amp;")
 
 def fetch_mail(m):
   msg = email.message_from_bytes(m[1])
@@ -144,7 +144,7 @@ def generate_atom(headers):
     '\t' + APP_NAME,
     '</generator>',
     '<id>' + id_prefix + '</id>']
-  atom_entry = [generate_entry(l,h[0],h[1],id_prefix + "/" + h[2], decode_subject(h[3][0]), h[3][1]) for (l,h) in headers if h[0] != None]
+  atom_entry = [generate_entry(l,h[0],h[1],id_prefix + "/" + h[2], decode_subjects(h[3][0]), h[3][1]) for (l,h) in headers if h[0] != None]
   atom_suffix = ['</feed>']
 
   return '\n'.join(atom_pref + atom_header + atom_entry + atom_suffix)
